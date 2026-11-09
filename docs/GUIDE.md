@@ -13,7 +13,7 @@ You can do this in the safe environment of the playbook, learn what is happening
 The architecture comprises four key components:
 
 - **Embedding Generator**: Converts videos and images into mathematical vectors using deep learning
-- **Similarity Search Engine**: Finds similar items in vector space using FAISS
+- **Similarity Search Engine**: Finds similar items in vector space using LanceDB, an embedded vector database
 - **Quality Check API**: Compares prepared food against reference images
 - **API Server & Dashboard**: Provides access and visualization
 
@@ -22,7 +22,7 @@ Here's where each of these components is:
 | Component | Location | Description |
 |---|---|---|
 | Embedding Generator | `src/embeddings/generator.py` | Converts videos and images into mathematical vectors using deep learning with ResNet |
-| Similarity Search Engine | `src/similarity/search.py` | Implements vector similarity search using FAISS |
+| Similarity Search Engine | `src/similarity/search.py` | Stores embeddings in a LanceDB table and searches it |
 | Quality Check API | `src/api/quality_check_api.py`, `src/utils/quality_checker.py` | API endpoints and core functionality for comparing images |
 | API Server | `src/api/main.py` | FastAPI-based REST API |
 | Dashboard | `src/api/dashboard.py` | Interactive visualization dashboard |
@@ -32,7 +32,7 @@ This architecture represents the evolution of data engineering beyond traditiona
 This transformation enables:
 
 - **Searchability**: Unstructured videos become mathematically comparable
-- **Indexability**: Using FAISS, these high-dimensional vectors can be efficiently indexed and queried
+- **Indexability**: Using LanceDB, these high-dimensional vectors can be efficiently indexed and queried
 - **Feature extraction**: Deep features are automatically extracted without manual annotation
 
 ---
@@ -43,7 +43,7 @@ You can run the generator code with multiple input directories by specifying the
 
 ```bash
 cd /path/to/ByteEatsVectorSimilaritySearch
-python src/embeddings/generator.py --input data/videos,data/images --output data/embeddings
+uv run python src/embeddings/generator.py --input data/videos,data/images --output data/embeddings
 ```
 
 The `generator.py` file uses a single unified architecture (`MediaEmbeddingGenerator` class) to process both videos and images, generating standardized 512-dimensional vector embeddings for each.
@@ -112,7 +112,7 @@ Embedding generation is the core of the ETL process — transforming unstructure
 
 ```bash
 cd /path/to/ByteEatsVectorSimilaritySearch
-python analyze_embeddings.py
+uv run python analyze_embeddings.py
 ```
 
 ### Expected Output
@@ -161,7 +161,7 @@ Higher similarity scores (closer to 1.0) indicate stronger matches between video
 
 ## Step 3: Running the Similarity Search Engine
 
-The Similarity Search Engine is located in `src/similarity/search.py` and uses FAISS for vector similarity search.
+The Similarity Search Engine is located in `src/similarity/search.py` and uses LanceDB for vector similarity search. The embeddings and their metadata are written to a Lance table on local disk (`data/lancedb/`), with no server to run.
 
 While you can interact with this engine through the API or test script, you can also use it directly:
 
@@ -190,7 +190,7 @@ for result in results:
 
 | Feature | Description |
 |---|---|
-| **Performance** | Uses optimized FAISS algorithms that can search thousands of vectors in milliseconds |
+| **Performance** | Uses LanceDB's vector indexes that can search thousands of vectors in milliseconds |
 | **Flexibility** | Supports different index types for speed/accuracy trade-offs |
 | **Cross-Modal Search** | Works with both video and image embeddings in the same index |
 | **Rich Metadata** | Returns comprehensive information about similar items |
@@ -200,10 +200,10 @@ for result in results:
 This file provides:
 
 - **Embedding Management**: Methods to load and organize embeddings from `.npy` files
-- **FAISS Index Building**: Creates specialized indexes for efficient similarity search:
-  - **Flat index** (exact search)
-  - **IVF index** (inverted file, faster but approximate)
-  - **HNSW index** (hierarchical navigable small world graphs)
+- **LanceDB Table and Index Building**: Writes the embeddings to a Lance table and creates specialized indexes for efficient similarity search:
+  - **Flat** (exact search, no index)
+  - **IVF index** (`IVF_FLAT`: inverted file, faster but approximate)
+  - **HNSW index** (`IVF_HNSW_FLAT`: hierarchical navigable small world graphs)
 - **Similarity Search Methods**:
   - `find_similar()`: Find similar items given a vector
   - `find_similar_by_id()`: Find similar items to an existing item
@@ -237,7 +237,7 @@ INFO:     127.0.0.1:60664 - "GET /api/similar/download%20%2828%29 HTTP/1.1" 200 
 
 ### Running the Test Script
 
-When you run `python test_similarity_search.py`, you'll see:
+When you run `uv run python test_similarity_search.py`, you'll see:
 
 ```
 Testing ByteEats Vector Similarity Search Engine
@@ -281,7 +281,7 @@ All tests completed successfully!
 ### What the Similarity Search Engine Does
 
 - It loads embeddings (512-dimensional vectors) for both videos and images
-- It creates a FAISS index for fast similarity search
+- It writes them to a LanceDB table and indexes it for fast similarity search
 - It can find similar items based on cosine similarity between embeddings
 - It returns ranked results with similarity scores (higher is better)
 
@@ -539,7 +539,7 @@ You're no longer working with a single-threaded Python script or a tidy FastAPI 
 
 ### Vector Database
 
-Our little FAISS-based index in-memory? That simply won't do at this scale. We'll need to transition to dedicated vector databases such as **Pinecone, Milvus, or Qdrant**. These systems implement optimized approximate nearest neighbor (ANN) search algorithms, ensuring we get response times in the 50–100 millisecond range even as we approach a million vectors. This is about building real-time feedback loops, anomaly detection, and quality tracking — without bottlenecks.
+Our little embedded LanceDB table on a laptop disk? It's the right start, but not the whole answer at this scale. The same Lance table can move to object storage (S3, GCS or Azure) by changing the connection URI, and quantized indexes (`IVF_PQ`, `IVF_HNSW_SQ`) keep it compact as it grows. Past that, a distributed deployment such as LanceDB Enterprise serves the same tables with optimized approximate nearest neighbor (ANN) search, ensuring we get response times in the 50–100 millisecond range even as we approach a million vectors. This is about building real-time feedback loops, anomaly detection, and quality tracking — without bottlenecks.
 
 ### Storage Calculations
 

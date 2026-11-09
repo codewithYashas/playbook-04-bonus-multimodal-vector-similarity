@@ -1,6 +1,6 @@
 .PHONY: smoke embeddings analyze clean
 
-# Sample data, embeddings on a subset, FAISS search, the APIs, the quality tool, the dashboard. CPU only.
+# Sample data, embeddings on a subset, LanceDB search, the APIs, the quality tool, the dashboard. CPU only.
 smoke:
 	uv run --frozen pytest -q tests/test_smoke.py
 
@@ -12,6 +12,6 @@ analyze:
 	uv run --frozen python analyze_embeddings.py
 	uv run --frozen python test_similarity_search.py
 
-# Remove generated embeddings and quality reports
+# Remove generated embeddings, the LanceDB table and quality reports
 clean:
-	rm -rf data/embeddings data/quality
+	rm -rf data/embeddings data/quality data/lancedb

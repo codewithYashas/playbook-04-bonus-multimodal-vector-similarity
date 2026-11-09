@@ -1,4 +1,4 @@
-"""Smoke tests: sample data, embeddings, FAISS search, the APIs, the quality tool and the dashboard.
+"""Smoke tests: sample data, embeddings, LanceDB search, the APIs, the quality tool and the dashboard.
 
 Run with `make smoke` (or `uv run pytest -q`). CPU only, a few minutes.
 To stay short, the pipeline runs on 3 of the 32 videos plus the 7 reference images.
@@ -83,9 +83,7 @@ def test_embeddings(workdir):
 
 
 def py(code, cwd, env=None):
-    """Run Python in a fresh process. On macOS, PyTorch and FAISS each bundle their own OpenMP
-    runtime, and one process that uses both from the main thread can abort or hang; the
-    project's scripts and servers never do, so each check runs in its own process too."""
+    """Run Python in a fresh process, the way the project's scripts and servers run."""
     result = subprocess.run([sys.executable, "-c", code], cwd=cwd, capture_output=True, text=True,
                             timeout=600, env=dict(os.environ, PYTHONPATH=ROOT, **(env or {})))
     assert result.returncode == 0, result.stdout + result.stderr
@@ -191,7 +189,11 @@ def test_servers_listen_locally_by_default():
         assert 'host="0.0.0.0"' not in source, path
 
 
-def test_install_script_checks_for_python_312():
-    # The first edition's check read "3.12" as 31 and rejected it
+def test_install_uses_uv_and_python_312():
+    # Installs go through uv and the lockfile; uv enforces requires-python (3.12+)
     with open(os.path.join(ROOT, "install.sh")) as fh:
-        assert "sys.version_info >= (3, 12)" in fh.read()
+        assert "uv sync --frozen" in fh.read()
+    with open(os.path.join(ROOT, "run_pipeline.sh")) as fh:
+        assert "\n    python " not in fh.read()
+    with open(os.path.join(ROOT, "pyproject.toml")) as fh:
+        assert 'requires-python = ">=3.12"' in fh.read()

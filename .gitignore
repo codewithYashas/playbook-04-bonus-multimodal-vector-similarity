@@ -85,3 +85,4 @@ data/embeddings_test/
 data/results/
 data/quality/
 AUDIT.md
+data/lancedb/

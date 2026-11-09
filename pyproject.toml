@@ -1,14 +1,13 @@
 [project]
 name = "playbook-04-bonus-multimodal-vector-similarity"
-version = "2026.10"
-description = "ByteEats vector similarity search: ResNet video and image embeddings, FAISS search, quality checks and a dashboard (Data Engineering for Multimodal AI, Chapter 4 bonus)"
+version = "2026.11"
+description = "ByteEats vector similarity search: ResNet video and image embeddings, LanceDB search, quality checks and a dashboard (Data Engineering for Multimodal AI, Chapter 4 bonus)"
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.12"
 dependencies = [
     "torch>=2.3",
     "torchvision>=0.18",
-    "faiss-cpu>=1.8",
     "numpy>=1.26",
     # Same library as opencv-python without the GUI functions, which the code doesn't use
     "opencv-python-headless>=4.9",
@@ -25,6 +24,7 @@ dependencies = [
     # plotly.express needs pandas to draw the dashboard's embedding plot
     "pandas>=2.1",
     "tqdm>=4.66",
+    "lancedb>=0.41",
 ]
 
 [dependency-groups]

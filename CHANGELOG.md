@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026.11 (2026-11-09): LanceDB port
+
+### Changed
+- Similarity search uses LanceDB (embedded, local) instead of FAISS. `load_embeddings()` writes the
+  embeddings and their metadata to a Lance table (`data/lancedb/`, or `LANCEDB_URI`); `build_index()`
+  maps Flat to exact search, IVF to `IVF_FLAT` and HNSW to `IVF_HNSW_FLAT`. Squared L2 distance and
+  the 1 / (1 + distance) score are unchanged, so the guide's scores are too.
+- Installs use uv only. `install.sh` runs `uv sync --frozen`, `run_pipeline.sh` runs Python through
+  `uv run`, and `requirements.txt` and the pip CI step are removed.
+- `faiss-cpu` replaced by `lancedb` in `pyproject.toml` and `uv.lock`.
+
+### Removed
+- The macOS OpenMP troubleshooting note: it came from FAISS and PyTorch each bundling OpenMP.
+
 ## 2026.10.1 (2026-10-27)
 
 ### Changed

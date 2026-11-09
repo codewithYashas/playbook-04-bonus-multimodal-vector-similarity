@@ -3,6 +3,8 @@
 **Bonus content for Chapter 4** of *Data Engineering for Multimodal AI* (O'Reilly, 2026). It is not printed in the book; it extends the [Chapter 4 playbook](https://github.com/Data-Engineering-for-Multimodal-AI/playbook-04-multimodal-ingestion-pipeline).
 Book: https://oreil.ly/data-engineering-multimodal
 
+> **LanceDB port.** This copy replaces the in-memory FAISS index with [LanceDB](https://lancedb.com), an embedded vector database: the embeddings and their metadata are written to a Lance table on local disk (`data/lancedb/`), and the Flat, IVF and HNSW searches run against it. There is no server to run. Installs use [uv](https://docs.astral.sh/uv/) only. See [Differences from the original (LanceDB port)](#differences-from-the-original-lancedb-port).
+
 > Want the code as it was when the book was published? Use the `first-edition` tag. This branch is the 2026 maintenance update; see [Differences from the first edition](#differences-from-the-first-edition).
 
 ## What you'll build
@@ -11,7 +13,7 @@ An advanced vector embedding and similarity search system for food preparation v
 
 - **Video Feature Extraction**: Extracts meaningful features from food preparation videos
 - **Vector Embedding Generation**: Transforms video features into 512-dimensional vector embeddings using ResNet
-- **Similarity Search**: Efficiently finds similar food preparations using vector similarity with FAISS
+- **Similarity Search**: Efficiently finds similar food preparations using vector similarity with LanceDB (embedded)
 - **Quality Assessment**: Compares videos against reference images with configurable thresholds
 - **Visualization**: Interactive dashboard to explore embeddings and quality assessment results
 
@@ -21,34 +23,26 @@ For a step-by-step walkthrough with expected output and dashboard screenshots, s
 
 ## Quick start
 
-You need Python 3.12 or newer and about 1.2 GB of disk space for the environment.
+You need [uv](https://docs.astral.sh/uv/getting-started/installation/) and about 1.4 GB of disk space for the environment. uv downloads Python 3.12 or newer if your system doesn't have it.
 
 ```bash
 # Clone the repository
 git clone https://github.com/Data-Engineering-for-Multimodal-AI/playbook-04-bonus-multimodal-vector-similarity.git
 cd playbook-04-bonus-multimodal-vector-similarity
 
-# Use the provided installation script
-chmod +x install.sh
-./install.sh
-
-# Or manually install dependencies
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
+# Install the locked dependencies into .venv
+./install.sh        # or: uv sync
 ```
 
-`install.sh` uses `python3`. If that is older than 3.12, point it at a newer one: `PYTHON=python3.12 ./install.sh`. The versions in `requirements.txt` are pinned; on Linux, PyTorch comes from its CPU-only index, which the file adds.
+The versions are pinned in `uv.lock`; on Linux, PyTorch comes from its CPU-only index (see `pyproject.toml`). There is no `requirements.txt` and no virtual environment to activate: prefix Python commands with `uv run`. `run_pipeline.sh` and the `Makefile` already do.
 
-Using [uv](https://docs.astral.sh/uv/) instead: `uv sync`, then prefix the Python commands with `uv run` (or use `make embeddings` and `make analyze`).
-
-Then, with the virtual environment active:
+Then:
 
 ```bash
 export IMAGE_DIR=data/images
 ./run_pipeline.sh --generate-embeddings     # about 3-5 minutes on a laptop CPU
-python analyze_embeddings.py
-python test_similarity_search.py
+uv run python analyze_embeddings.py
+uv run python test_similarity_search.py     # or: make analyze
 ```
 
 and the API, quality check tool and dashboard as described below. The servers listen on this machine only (`127.0.0.1`); set `HOST=0.0.0.0` to reach them from another machine.
@@ -59,7 +53,7 @@ and the API, quality check tool and dashboard as described below. The servers li
 make smoke    # or: uv run pytest -q
 ```
 
-`make smoke` (about a minute on a laptop CPU) generates embeddings for 3 videos and the 7 reference images, then checks FAISS search, the analysis scripts, the dashboard's plot, the API through `run_pipeline.sh --start-api`, the quality check tool, and three scores from the guide. GitHub Actions runs it on Python 3.12 and 3.13, plus the `pip install -r requirements.txt` path.
+`make smoke` (about a minute on a laptop CPU) generates embeddings for 3 videos and the 7 reference images, then checks LanceDB search (Flat and HNSW), the analysis scripts, the dashboard's plot, the API through `run_pipeline.sh --start-api`, the quality check tool, and three scores from the guide. GitHub Actions runs it on Python 3.12 and 3.13.
 
 ## Detailed Implementation
 
@@ -114,14 +108,14 @@ export IMAGE_DIR=data/images
 1. **FastAPI Backend**:
    - RESTful API with documented endpoints (Swagger available at /docs)
    - Handles requests for similarity search and quality assessment
-   - Maintains an in-memory FAISS index for fast similarity queries
+   - Writes the embeddings to a local LanceDB table at startup and searches it
    - Processes quality check requests by comparing videos to reference images
 
-2. **FAISS Index**:
-   - Creates a high-performance vector similarity search index
-   - Supports different index types (Flat, IVF, HNSW)
-   - Optimized for fast nearest-neighbor search in high-dimensional space
-   - Automatically rebuilt when new embeddings are detected
+2. **LanceDB Table and Index**:
+   - Stores each embedding with its ID and metadata in a Lance table under `data/lancedb/` (set `LANCEDB_URI` to use another location)
+   - Supports different index types: Flat (exact search, no index), IVF (`IVF_FLAT`) and HNSW (`IVF_HNSW_FLAT`)
+   - Uses squared L2 distance, like the original FAISS `IndexFlatL2`, so the similarity scores are unchanged
+   - Rewritten from the embeddings folder each time the API starts
 
 3. **Quality Check**:
    - Loads video frames and reference images
@@ -243,13 +237,13 @@ export IMAGE_DIR=data/images
    export API_URL="http://localhost:8085"
    ```
 
-5. **`OMP: Error #15` or a hang on macOS, in your own script**: PyTorch and FAISS each bundle their own copy of the OpenMP runtime on macOS. The project's scripts and servers work (the smoke tests and the runs below check them), but a script of your own that runs FAISS searches and PyTorch models in its main thread can abort with this error or hang. Run the two in separate processes, or call the API for searches.
+5. **`No existing dataset at .../embeddings.lance, it will be created`**: a harmless LanceDB message the first time the table is written.
 
 6. **Quality tool numbering**: the tool numbers videos in the order the file system lists them, which can differ between machines. Check the name it prints ("Checking quality of download (25) ...") rather than relying on the number.
 
 7. **`[h264 @ ...] mmco: unref short failure`** while generating embeddings: a harmless message from the video decoder about a few of the clips. The frames are still read.
 
-8. **`install.sh` says Python 3.12 or higher is required**: run `PYTHON=python3.12 ./install.sh` (or any newer Python).
+8. **`install.sh` says uv is not installed**: install it from https://docs.astral.sh/uv/getting-started/installation/ (for example `brew install uv`).
 
 ## Tested on
 
@@ -258,9 +252,11 @@ export IMAGE_DIR=data/images
 | Date | 2026-10-23 |
 | OS | macOS 26.5.1 (arm64); GitHub Actions `ubuntu-latest` |
 | Python | 3.12.15 and 3.13.16 |
-| Key packages | torch 2.14.1, torchvision 0.29.1, faiss-cpu 1.15.1, numpy 2.5.4, opencv-python-headless 5.0.0.93, fastapi 0.162.0, dash 4.4.1, plotly 7.1.0, pandas 3.1.0 |
+| Key packages (original) | torch 2.14.1, torchvision 0.29.1, faiss-cpu 1.15.1, numpy 2.5.4, opencv-python-headless 5.0.0.93, fastapi 0.162.0, dash 4.4.1, plotly 7.1.0, pandas 3.1.0 |
 | Install time | `./install.sh`: 68 s (environment 1.2 GB) |
 | Embeddings | All 32 videos and 7 images: about 3 minutes (170 s) on an Apple-silicon laptop CPU |
+
+LanceDB port: `make smoke` passes on 2026-11-09, macOS 26.7.1 (arm64), Python 3.14.8, lancedb 0.41.0, pyarrow 26.0.1. The other rows are from the original FAISS version.
 
 Every command in this README and the guide was run from a fresh clone of this branch on Python 3.12. The embeddings give the same analysis output as the first-edition code with its original versions (NumPy 1.26, OpenCV 4.11), and as the guide.
 
@@ -284,6 +280,17 @@ Every command in this README and the guide was run from a fresh clone of this br
 | Dependencies | Version ranges, `numpy<2`, no lock | Pinned from `uv.lock`; NumPy 2, OpenCV 5 (headless); PyTorch CPU build on Linux | Reproducible installs; the results are unchanged |
 
 Details are in [CHANGELOG.md](CHANGELOG.md).
+
+## Differences from the original (LanceDB port)
+
+| What | Original | LanceDB port |
+|---|---|---|
+| Vector store | In-memory FAISS index, rebuilt on every start | LanceDB table on local disk (`data/lancedb/`, or `LANCEDB_URI`), rewritten from the embeddings folder on every start |
+| Index types | `IndexFlatL2`, `IndexIVFFlat`, `IndexHNSWFlat` | No index (exact search), `IVF_FLAT`, `IVF_HNSW_FLAT` |
+| Distance and scores | Squared L2; score = 1 / (1 + distance) | The same, so the guide's scores are unchanged |
+| Metadata | Python lists next to the index | A JSON column in the same table as the vectors |
+| Install | `install.sh` (venv + pip), `requirements.txt`, or `uv sync` | uv only: `install.sh` runs `uv sync --frozen`; `run_pipeline.sh` runs Python through `uv run` |
+| macOS OpenMP conflict | FAISS and PyTorch each bundle OpenMP, so one process using both could abort or hang | LanceDB doesn't link OpenMP; a PyTorch model and a LanceDB search run in one process |
 
 ## Data and licenses
 
@@ -383,20 +390,19 @@ INFO:     Uvicorn running on http://127.0.0.1:8085 (Press CTRL+C to quit)
 ```
 ├── src/
 │   ├── embeddings/generator.py       # ResNet-18 video and image embeddings
-│   ├── similarity/search.py          # FAISS index (Flat, IVF, HNSW) and search
+│   ├── similarity/search.py          # LanceDB table, index (Flat, IVF, HNSW) and search
 │   ├── api/main.py                   # Similarity search API (includes the quality endpoints)
 │   ├── api/quality_check_api.py      # Quality check endpoints
 │   ├── api/run_quality_api.py        # Quality check API on its own
 │   ├── api/dashboard.py              # Dash dashboard
 │   └── utils/                        # quality_checker.py, init.py (setup helpers)
 ├── scripts/                          # quality_check.py (CLI tool), setup_directories.py, cleanup.py
-├── data/                             # Sample videos, images and orders (see data/README.md)
+├── data/                             # Sample videos, images and orders (see data/README.md); data/lancedb/ is generated
 ├── docs/GUIDE.md, docs/images/       # Bonus content guide and screenshots
 ├── analyze_embeddings.py, test_similarity_search.py, test_api_client.py, test_quality_api.py
-├── run_pipeline.sh, install.sh
+├── run_pipeline.sh, install.sh       # Both run through uv
 ├── tests/test_smoke.py, Makefile
 ├── pyproject.toml, uv.lock           # Dependencies (uv)
-├── requirements.txt                  # Pinned, exported from uv.lock
 ├── CHANGELOG.md
 └── LICENSE
 ```
@@ -411,13 +417,14 @@ For optimal performance when scaling to larger datasets:
    - Batch processing for efficient resource utilization
 
 2. **Similarity Search**:
-   - FAISS indexes can be configured for different performance profiles:
+   - LanceDB indexes can be configured for different performance profiles:
      - Flat: Most accurate but slower for large collections
-     - IVF: Faster but slightly less accurate
-     - HNSW: Best balance of speed and accuracy for large datasets
+     - IVF (`IVF_FLAT`): Faster but slightly less accurate
+     - HNSW (`IVF_HNSW_FLAT`): Best balance of speed and accuracy for large datasets
+     - Quantized variants (`IVF_PQ`, `IVF_HNSW_SQ`, `IVF_RQ`) trade some accuracy for smaller indexes
 
 3. **Memory Management**:
-   - For large datasets, consider memory-mapped storage of embeddings
+   - The Lance table is read from disk, so the embeddings don't need to fit in memory
    - Implement pagination for API results
    - Use quantization techniques to reduce embedding size (FP16, INT8)
 
@@ -428,7 +435,7 @@ This project showcases advanced data engineering techniques:
 - **Complex Data Transformation**: Converting raw video data into structured vector embeddings
 - **Transfer Learning**: Using pre-trained ResNet models to extract visual features
 - **Temporal Aggregation**: Averaging frame embeddings for consistent video representation
-- **Fast Similarity Search**: Using FAISS for efficient nearest-neighbor queries
+- **Fast Similarity Search**: Using LanceDB, an embedded vector database, for efficient nearest-neighbor queries
 - **Cross-Modal Comparison**: Matching videos against images using the same embedding space
 
 ## License

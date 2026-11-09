@@ -2,6 +2,8 @@
 # ByteEats Vector Similarity Search Pipeline Runner
 # This script runs the various components of the ByteEats system
 
+# Every Python command runs through uv, in the environment that install.sh (uv sync) creates.
+
 # Default configuration
 API_PORT=${API_PORT:-8080}
 DASHBOARD_PORT=${DASHBOARD_PORT:-8050}
@@ -43,7 +45,7 @@ display_help() {
 # Setup directory structure
 setup_directories() {
     echo "Setting up directory structure..."
-    python scripts/setup_directories.py
+    uv run --frozen python scripts/setup_directories.py
 }
 
 # Start the similarity search API
@@ -54,7 +56,7 @@ start_api() {
     export VIDEO_DIR=${VIDEO_DIR}
     export QUALITY_DIR=${QUALITY_DIR}
     export EMBEDDINGS_DIR=${EMBEDDINGS_DIR}
-    python src/api/main.py
+    uv run --frozen python src/api/main.py
 }
 
 # Start the visualization dashboard
@@ -62,7 +64,7 @@ start_dashboard() {
     echo "Starting the visualization dashboard on port ${DASHBOARD_PORT}..."
     export DASHBOARD_PORT=${DASHBOARD_PORT}
     export API_URL=${API_URL:-"http://localhost:${API_PORT}"}
-    python src/api/dashboard.py
+    uv run --frozen python src/api/dashboard.py
 }
 
 # Start the quality check API
@@ -72,7 +74,7 @@ start_quality_api() {
     export IMAGE_DIR=${IMAGE_DIR}
     export VIDEO_DIR=${VIDEO_DIR}
     export QUALITY_DIR=${QUALITY_DIR}
-    python src/api/run_quality_api.py
+    uv run --frozen python src/api/run_quality_api.py
 }
 
 # Run the quality check tool
@@ -80,18 +82,18 @@ quality_check() {
     echo "Running the quality check tool..."
     API_URL="http://localhost:${API_PORT}"
     echo "Using API URL: ${API_URL}"
-    python scripts/quality_check.py --api-url ${API_URL}
+    uv run --frozen python scripts/quality_check.py --api-url ${API_URL}
 }
 
 # List reference images
 list_images() {
-    python scripts/setup_directories.py --list-images
+    uv run --frozen python scripts/setup_directories.py --list-images
 }
 
 # List available videos
 list_videos() {
     export API_URL=${API_URL:-"http://localhost:${API_PORT}"}
-    python scripts/quality_check.py --list-videos
+    uv run --frozen python scripts/quality_check.py --list-videos
 }
 
 # Move images from directory to reference_images
@@ -100,14 +102,14 @@ move_images() {
         echo "Error: No source directory specified."
         exit 1
     fi
-    python scripts/setup_directories.py --move-images "$1"
+    uv run --frozen python scripts/setup_directories.py --move-images "$1"
 }
 
 # Generate embeddings from videos and images
 generate_embeddings() {
     echo "Generating embeddings from videos and images..."
     mkdir -p ${EMBEDDINGS_DIR}
-    python src/embeddings/generator.py --input ${VIDEO_DIR},${IMAGE_DIR} --output ${EMBEDDINGS_DIR}
+    uv run --frozen python src/embeddings/generator.py --input ${VIDEO_DIR},${IMAGE_DIR} --output ${EMBEDDINGS_DIR}
     echo "Embeddings generation complete."
 }
 

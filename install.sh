@@ -1,44 +1,32 @@
 #!/bin/bash
 # ByteEats Vector Similarity Search Installation Script
+# Installs the locked dependencies (uv.lock) with uv into .venv
+
+set -e
 
 echo "ByteEats Vector Similarity Search Installation"
 echo "=============================================="
 echo
 
-# Check for Python 3.12+ (set PYTHON to use a different interpreter)
-PYTHON=${PYTHON:-python3}
-if ! "$PYTHON" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 12) else 1)'; then
-    echo "Error: Python 3.12 or higher is required."
-    echo "Current version: $("$PYTHON" --version 2>&1)"
-    echo "Run with a newer Python, for example: PYTHON=python3.12 ./install.sh"
+if ! command -v uv >/dev/null 2>&1; then
+    echo "Error: uv is not installed."
+    echo "Install it from https://docs.astral.sh/uv/getting-started/installation/"
+    echo "  macOS/Linux: curl -LsSf https://astral.sh/uv/install.sh | sh"
+    echo "  Homebrew:    brew install uv"
     exit 1
 fi
 
-echo "Creating virtual environment..."
-"$PYTHON" -m venv venv
-
-# Activate virtual environment
-if [ -f "venv/bin/activate" ]; then
-    source venv/bin/activate
-elif [ -f "venv/Scripts/activate" ]; then
-    source venv/Scripts/activate
-else
-    echo "Error: Could not find virtual environment activation script."
-    exit 1
-fi
-
-echo "Installing dependencies..."
-pip install --upgrade pip
-pip install -r requirements.txt
+# uv downloads a Python 3.12+ interpreter if the system doesn't have one (see requires-python)
+echo "Installing dependencies from uv.lock..."
+uv sync --frozen
 
 echo "Setting up directory structure..."
-python scripts/setup_directories.py
+uv run --frozen python scripts/setup_directories.py
+
+# Make the run_pipeline.sh executable
+chmod +x run_pipeline.sh
 
 echo "Installation complete!"
-echo
-echo "To activate the virtual environment:"
-echo "  On Linux/Mac: source venv/bin/activate"
-echo "  On Windows: venv\\Scripts\\activate"
 echo
 echo "To run the API server:"
 echo "  ./run_pipeline.sh --start-api"
@@ -46,6 +34,6 @@ echo
 echo "To run the dashboard:"
 echo "  ./run_pipeline.sh --start-dashboard"
 echo
-
-# Make the run_pipeline.sh executable
-chmod +x run_pipeline.sh 
+echo "To run any other script, prefix it with 'uv run', for example:"
+echo "  uv run python analyze_embeddings.py"
+echo

@@ -7,7 +7,7 @@ on:
 
 jobs:
   smoke:
-    # Sample data, embeddings on a subset, FAISS search, the APIs, the quality tool, the dashboard (CPU)
+    # Sample data, embeddings on a subset, LanceDB search, the APIs, the quality tool, the dashboard (CPU)
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -25,11 +25,3 @@ jobs:
           key: torch-resnet18-imagenet1k-v1
       - name: Smoke test
         run: make smoke
-      - name: Printed install path (pip install -r requirements.txt), one video and the reference images
-        run: |
-          uv venv --seed --python ${{ matrix.python-version }} /tmp/pipenv
-          /tmp/pipenv/bin/python -m pip install -q -r requirements.txt
-          mkdir -p /tmp/one && cp "data/videos/download (25).mp4" /tmp/one/
-          /tmp/pipenv/bin/python src/embeddings/generator.py --input /tmp/one,data/images --output data/embeddings
-          /tmp/pipenv/bin/python analyze_embeddings.py
-          /tmp/pipenv/bin/python test_similarity_search.py
