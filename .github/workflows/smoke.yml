@@ -7,7 +7,7 @@ on:
 
 jobs:
   smoke:
-    # Sample data, embeddings on a subset, LanceDB search, the APIs, the quality tool, the dashboard (CPU)
+    # The pipeline on 3 videos + 7 images into LanceDB, the guide's numbers, and the Streamlit app (CPU)
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -15,6 +15,7 @@ jobs:
         python-version: ["3.12", "3.13"]
     env:
       UV_PYTHON: ${{ matrix.python-version }}
+      LANCEDB_PROFILE: ""
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.3.0
@@ -23,5 +24,7 @@ jobs:
         with:
           path: ~/.cache/torch
           key: torch-resnet18-imagenet1k-v1
+      - name: Lint
+        run: make check
       - name: Smoke test
         run: make smoke

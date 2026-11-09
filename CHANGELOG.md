@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026.11.1 (2026-11-09): LanceDB-native rebuild
+
+Rebuilt in the fe-demos demo format. See README "Ported from the original".
+
+### Changed
+- Embeddings go straight into LanceDB: `scripts/01_embed_media.py` writes a `media` table (videos and reference images, with file bytes, thumbnails, metadata and vectors) and a `frames` table (every 5th frame's vector and thumbnail). No `.npy` or JSON sidecar files.
+- `scripts/02_create_indexes.py` builds IVF_HNSW_SQ on `frames.embedding` and BTree/Bitmap scalar indexes; `scripts/03_compare_indexes.py` replaces the Flat/IVF/HNSW comparison with measured recall@10 for IVF_FLAT, IVF_PQ, IVF_SQ and IVF_HNSW_SQ.
+- Cosine distance (similarity = 1 - distance) instead of squared L2 with 1 / (1 + d): the scores now match `analyze_embeddings.py`'s cosine similarities.
+- One Streamlit app (`app/app.py`) replaces the FastAPI server, the quality API, the quality CLI and the Dash dashboard: Search, Quality check and Explore tabs, a details dialog with neighbours, and a Debug toggle showing raw rows and each LanceDB query.
+- The quality check is a prefiltered vector search over the stored frames (24 per video) rather than re-decoding 8 frames per check. The guide's four examples keep their verdicts; their scores move by up to 0.03.
+- Clustering: UMAP + K-Means/HDBSCAN on the 512-d vectors, named by the nearest reference dish, replacing the 25th-percentile-distance grouping and the PCA plot.
+
+### Removed
+- `src/` (FastAPI API, quality API, Dash dashboard, FAISS-era search and generator), `run_pipeline.sh`, `install.sh`, `analyze_embeddings.py`, the `test_*.py` API scripts, `scripts/{cleanup,quality_check,setup_directories}.py`, `data/sample_queries.json`, and `docs/` (the guide and its dashboard screenshots, which describe the removed UI; they remain upstream and in git history).
+- Dependencies: fastapi, uvicorn, pydantic, python-multipart, requests, dash, tqdm. Added: streamlit, umap-learn, pyarrow; ruff (dev).
+
 ## 2026.11 (2026-11-09): LanceDB port
 
 ### Changed

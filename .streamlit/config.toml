@@ -1,0 +1,8 @@
+[server]
+# 80 + chapter (04) + slot (0 main, 1 bonus): playbook-04-bonus → 8041.
+port = 8041
+# No "Source file changed: Rerun / Always rerun" prompt while presenting.
+fileWatcherType = "none"
+
+[browser]
+gatherUsageStats = false

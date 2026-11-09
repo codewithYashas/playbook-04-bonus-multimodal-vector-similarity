@@ -1,7 +1,7 @@
 [project]
 name = "playbook-04-bonus-multimodal-vector-similarity"
-version = "2026.11"
-description = "ByteEats vector similarity search: ResNet video and image embeddings, LanceDB search, quality checks and a dashboard (Data Engineering for Multimodal AI, Chapter 4 bonus)"
+version = "2026.11.1"
+description = "ByteEats vector similarity on LanceDB: ResNet-18 video, frame and image embeddings stored with the media, searched and explored in a Streamlit app (Data Engineering for Multimodal AI, Chapter 4 bonus, ported from FAISS)"
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.12"
@@ -12,24 +12,20 @@ dependencies = [
     # Same library as opencv-python without the GUI functions, which the code doesn't use
     "opencv-python-headless>=4.9",
     "pillow>=10.2",
+    # K-Means and HDBSCAN for the Explore tab
     "scikit-learn>=1.4",
-    "fastapi>=0.110",
-    "uvicorn>=0.29",
-    "pydantic>=2.5",
-    # Needed by the quality API's reference-image upload endpoint
-    "python-multipart>=0.0.9",
-    "requests>=2.31",
-    "dash>=2.16",
-    "plotly>=5.20",
-    # plotly.express needs pandas to draw the dashboard's embedding plot
     "pandas>=2.1",
-    "tqdm>=4.66",
+    "pyarrow>=18",
     "lancedb>=0.41",
+    "streamlit>=1.50",
+    "plotly>=5.20",
+    "umap-learn>=0.5.7",
 ]
 
 [dependency-groups]
 dev = [
     "pytest>=8",
+    "ruff>=0.8",
 ]
 
 [tool.uv]
@@ -45,3 +41,13 @@ torchvision = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
 name = "pytorch-cpu"
 url = "https://download.pytorch.org/whl/cpu"
 explicit = true
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["scripts", "queries", "charts", "debug", "explore"]
