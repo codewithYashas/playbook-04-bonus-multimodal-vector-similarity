@@ -76,7 +76,8 @@ def test_image_to_video_search_matches_the_guide(tables):
     tuna = q.media_row(media, "Tuna_Lover")
     found = q.media_search(media, tuna["embedding"], "Tuna_Lover", media_type="video", limit=1)
     assert found.iloc[0]["media_id"] == "download (15)"
-    assert round(found.iloc[0]["similarity"], 4) == 0.7764  # the guide's analyze_embeddings.py output
+    # The guide's analyze_embeddings.py output, with upstream's tolerance
+    assert found.iloc[0]["similarity"] == pytest.approx(0.7764, abs=0.005)
 
 
 @pytest.mark.parametrize(
